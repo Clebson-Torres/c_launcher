@@ -1,5 +1,9 @@
 # CLauncher 🚀
 
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Made with Tauri](https://img.shields.io/badge/Made%20with-Tauri-24C8DB?logo=tauri)](https://tauri.app/)
+[![Rust](https://img.shields.io/badge/Rust-1.70+-orange?logo=rust)](https://www.rust-lang.org/)
+
 A powerful, fast, and customizable application launcher for Windows built with Tauri and Rust.
 
 
