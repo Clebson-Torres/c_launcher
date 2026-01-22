@@ -16,7 +16,7 @@ A powerful, fast, and customizable application launcher for Windows built with T
 - **Real-time results** with intelligent scoring
 
 ### ⚡ Custom Commands
-CLauncher supports powerful custom commands with prefixes:
+c_launcher supports powerful custom commands with prefixes:
 
 #### 🌐 Web Search
 - `g: term` or `google: term` - Search on Google
@@ -62,7 +62,7 @@ CLauncher supports powerful custom commands with prefixes:
 ### Installation
 
 #### Option 1: Download Release
-1. Go to [Releases](https://github.com/yourusername/clauncher/releases)
+1. Go to [Releases]( https://github.com/Clebson-Torres/c_launcher/releases)
 2. Download the latest `.msi` or `.exe` installer
 3. Run the installer
 4. Launch CLauncher from the system tray
@@ -77,7 +77,7 @@ CLauncher supports powerful custom commands with prefixes:
 ##### Steps
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/clauncher.git
+git clone  https://github.com/Clebson-Torres/c_launcher.git
 cd clauncher
 
 # Install dependencies
