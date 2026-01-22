@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">    
+    <link rel="stylesheet" href="src/styles.css">
+    <script type="module" src="src/main.ts"></script>
+</head>
+<body>
+    <div class="launcher-container">
+        <!-- Campo de busca -->
+        <input 
+            type="text" 
+            id="search-input" 
+            class="search-input" 
+            placeholder="Digite para buscar..." 
+            autofocus
+        >
+        
+        <!-- Separador -->
+        <div class="separator"></div>
+        
+        <!-- Container de resultados -->
+        <div id="results-container" class="results-container">
+            <!-- Os resultados serão gerados dinamicamente pelo main.ts -->
+        </div>
+        
+        <!-- Rodapé com comandos -->
+        <div class="footer">
+            <!-- Atalhos de teclado -->
+            <div class="footer-section">
+                <div class="footer-shortcuts">
+                    <span class="shortcut-item">
+                        <kbd>↑↓</kbd> Navegar
+                    </span>
+                    <span class="shortcut-item">
+                        <kbd>↵</kbd> Abrir
+                    </span>
+                    <span class="shortcut-item">
+                        <kbd>Esc</kbd> Fechar
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Separador visual -->
+            <div class="footer-divider"></div>
+            
+            <!-- Comandos disponíveis -->
+            <div class="footer-section">
+                <div class="footer-commands">
+                    <span class="command-group">
+                        <strong>Search:</strong>
+                        <code>g:</code>
+                        <code>yt:</code>
+                        <code>wiki:</code>
+                    </span>
+                    <span class="command-group">
+                        <strong>Utils:</strong>
+                        <code>calc:</code>
+                        <code>tr:</code>
+                        <code>maps:</code>
+                    </span>
+                    <span class="command-group">
+                        <strong>Dev:</strong>
+                        <code>gh:</code>
+                        <code>so:</code>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

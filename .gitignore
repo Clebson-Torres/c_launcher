@@ -1,0 +1,58 @@
+# Node modules
+node_modules/
+dist/
+dist-ssr/
+
+# Tauri
+src-tauri/target/
+src-tauri/WixTools/
+
+# Build outputs
+*.exe
+*.msi
+*.dmg
+*.deb
+*.AppImage
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+```
+
+# Rust
+/target/
+**/*.rs.bk
+
+# Tauri
+src-tauri/target/
+src-tauri/Cargo.lock
+src-tauri/.env
+
+# Node (se tiver frontend)
+node_modules/
+dist/
+out/
+
+# Sistema
+.DS_Store
+*.swp
+*.swo
