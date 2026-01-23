@@ -110,16 +110,6 @@ gh: web assembly
 # Wikipedia
 wiki: rust programming language
 
-# Translate
-tr: hello world
-
-# Maps
-maps: New York
-m: times square
-
-# Currency conversion
-100 usd to brl
-50 eur to usd
 ```
 
 ## 🛠️ Tech Stack
@@ -140,7 +130,8 @@ clauncher/
 │   └── index.html       # Main HTML
 ├── src-tauri/           # Rust backend
 │   ├── src/
-│   │   └── main.rs      # Main Rust application
+│   │   ├── main.rs      # Main Rust application
+│   │   └── lib.rs  
 │   ├── icons/           # Application icons
 │   ├── Cargo.toml       # Rust dependencies
 │   └── tauri.conf.json  # Tauri configuration
