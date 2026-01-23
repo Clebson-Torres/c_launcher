@@ -120,6 +120,25 @@ pub mod commands {
                 .map_err(|e| e.to_string())?;
         }
         return Ok(());
+
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        {
+            if path.starts_with("terminal:") {
+                let cmd = path.strip_prefix("terminal:").unwrap();
+                // No Linux usamos x-terminal-emulator, no Mac usamos o comando 'open'
+                let shell_cmd = if cfg!(target_os = "macos") {
+                    format!("osascript -e 'tell application \"Terminal\" to do script \"{}\"'", cmd)
+                } else {
+                    format!("x-terminal-emulator -e {}", cmd)
+                };
+
+                std::process::Command::new("sh")
+                    .arg("-c")
+                    .arg(shell_cmd)
+                    .spawn().map_err(|e| e.to_string())?;
+                return Ok(());
+            }
+        }
     }
 }
             
