@@ -1,10 +1,18 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::sync::Mutex;
-use tauri::{Manager, WindowEvent, tray::{TrayIconBuilder, TrayIconEvent}};
+use tauri::{Manager, tray::{TrayIconBuilder, TrayIconEvent}};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-// Removido o import global aqui para não quebrar no Linux/Mac
+#[cfg(target_os = "windows")]
+use tauri_plugin_autostart::ManagerExt;
+
+
+#[derive(Clone, serde::Serialize)]
+pub struct ClipboardItem {
+    pub content: String,
+    pub is_sensitive: bool,
+}
 
 #[derive(Clone, serde::Serialize)]
 pub struct FileResult {
@@ -22,6 +30,19 @@ impl FileResult {
 
 pub struct AppState {
     pub hotkey_registered: Mutex<bool>,
+    pub clipboard_history: Mutex<Vec<ClipboardItem>>,
+}
+
+
+
+fn is_likely_sensitive(text: &str) -> bool {
+    let t = text.trim();
+    if t.is_empty() { return false; }
+    if t.starts_with("ghp_") || t.starts_with("sk-") { return true; }
+    let has_number = t.chars().any(|c| c.is_numeric());
+    let has_special = t.chars().any(|c| !c.is_alphanumeric());
+    if t.len() < 35 && has_number && has_special { return true; }
+    false
 }
 
 pub mod commands {
@@ -33,59 +54,64 @@ pub mod commands {
     use walkdir::WalkDir;
 
     #[tauri::command]
-    pub async fn search_files(query: String) -> Result<Vec<FileResult>, String> {
+    pub async fn search_files(app_handle: tauri::AppHandle, query: String) -> Result<Vec<FileResult>, String> {
         let mut results = Vec::new();
         let query_trim = query.trim();
-    
-        if query_trim.is_empty() {
-            return Ok(get_common_apps());
-        }
-    
-        if let Some(web_res) = handle_web_prefixes(query_trim) {
-            results.push(web_res);
+        let state = app_handle.state::<AppState>();
+
+       
+        if query_trim.starts_with("clip:") {
+            let history = state.clipboard_history.lock().unwrap();
+            let search_term = query_trim.strip_prefix("clip:").unwrap_or("").to_lowercase();
+
+            for item in history.iter() {
+                let display_name = if item.is_sensitive {
+                    "🔒 [Conteúdo Sensível Oculto]".to_string()
+                } else {
+                    let preview: String = item.content.chars().take(45).collect();
+                    format!("📋 {}", if preview.len() < item.content.len() { format!("{}...", preview) } else { preview })
+                };
+
+                if search_term.is_empty() || item.content.to_lowercase().contains(&search_term) {
+                    results.push(FileResult::new(display_name, format!("clip:{}", item.content), true, 15000));
+                }
+            }
             return Ok(results);
         }
-    
-        if let Some(calc_res) = handle_calculator(query_trim) {
-            results.push(calc_res);
-            return Ok(results);
-        }
-    
+
+        
+        if query_trim.is_empty() { return Ok(get_common_apps()); }
+
         let matcher = SkimMatcherV2::default();
         let query_lower = query_trim.to_lowercase();
-        
+
         if query_trim.starts_with('>') {
             let cmd_text = query_trim.strip_prefix('>').unwrap_or("").trim();
             if !cmd_text.is_empty() {
-                results.push(FileResult::new(
-                    format!("💻 Executar: {}", cmd_text),
-                    format!("terminal:{}", cmd_text), 
-                    true,
-                    20000 
-                ));
+                results.push(FileResult::new(format!("💻 Executar: {}", cmd_text), format!("terminal:{}", cmd_text), true, 20000));
                 return Ok(results);
             }
         }
-        
+
         if let Some(user_dirs) = UserDirs::new() {
-            let search_dirs = vec![
-                user_dirs.desktop_dir(),
-                user_dirs.document_dir(),
-                user_dirs.download_dir(),
-            ];
+            let search_dirs = vec![user_dirs.desktop_dir(), user_dirs.document_dir(), user_dirs.download_dir()];
             for dir in search_dirs.into_iter().flatten() {
-                search_in_directory(dir, &query_lower, &matcher, &mut results);
+                for entry in WalkDir::new(dir).max_depth(3).into_iter().filter_map(|e| e.ok()).filter(|e| e.file_type().is_file()) {
+                    let name = entry.file_name().to_string_lossy();
+                    if let Some(score) = matcher.fuzzy_match(&name.to_lowercase(), &query_lower) {
+                        results.push(FileResult::new(name.to_string(), entry.path().display().to_string(), false, score));
+                    }
+                }
             }
         }
-    
-        search_executables(&query_lower, &matcher, &mut results);
-    
+
+        
         for app in get_common_apps() {
             if matcher.fuzzy_match(&app.name.to_lowercase(), &query_lower).is_some() {
                 results.push(app);
             }
         }
-    
+
         results.sort_by(|a, b| b.score.cmp(&a.score));
         results.truncate(20);
         Ok(results)
@@ -93,134 +119,41 @@ pub mod commands {
 
     #[tauri::command]
     pub async fn open_file(path: String) -> Result<(), String> {
-        if path.starts_with("result:") { return Ok(()); }
+        if path.starts_with("clip:") {
+            let content = path.strip_prefix("clip:").unwrap_or("");
+            let mut clipboard = arboard::Clipboard::new().map_err(|e: arboard::Error| e.to_string())?;
+            return clipboard.set_text(content.to_string()).map_err(|e: arboard::Error| e.to_string());
+        }
 
-        // --- LÓGICA DE TERMINAL ---
         if path.starts_with("terminal:") {
             let cmd = path.strip_prefix("terminal:").unwrap_or("");
-            
             #[cfg(target_os = "windows")]
             {
-                std::process::Command::new("cmd")
-                    .args(["/C", "start", "powershell", "-NoExit", "-Command", cmd])
-                    .spawn()
-                    .map_err(|e| e.to_string())?;
-            }
-
-            #[cfg(any(target_os = "linux", target_os = "macos"))]
-            {
-                let shell_cmd = if cfg!(target_os = "macos") {
-                    format!("osascript -e 'tell application \"Terminal\" to do script \"{}\"'", cmd)
-                } else {
-                    format!("x-terminal-emulator -e {}", cmd)
-                };
-
-                std::process::Command::new("sh")
-                    .arg("-c")
-                    .arg(shell_cmd)
-                    .spawn().map_err(|e| e.to_string())?;
+                Command::new("cmd").args(["/C", "start", "powershell", "-NoExit", "-Command", cmd]).spawn().map_err(|e| e.to_string())?;
             }
             return Ok(());
         }
-    
-        // --- LÓGICA DE ARQUIVOS/URLS ---
-        #[cfg(target_os = "windows")]
-        {
-            if path.starts_with("http") || path.starts_with("mailto:") || path.starts_with("ms-settings:") {
-                Command::new("cmd").args(["/C", "start", "", &path]).spawn().map_err(|e| e.to_string())?;
-            } else {
-                open::that(&path).map_err(|e| e.to_string())?;
-            }
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            open::that(&path).map_err(|e| e.to_string())?;
-        }
-        Ok(())
+
+        open::that(&path).map_err(|e| e.to_string())
     }
 
-    #[tauri::command]
-    pub async fn hide_window(window: tauri::Window) -> Result<(), String> {
-        window.hide().map_err(|e| e.to_string())
-    }
-
-    #[tauri::command]
-    pub async fn show_window(window: tauri::Window) -> Result<(), String> {
-        window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())
-    }
-
-    fn handle_web_prefixes(query: &str) -> Option<FileResult> {
-        let prefixes = [
-            ("g:", "google:", "🔍 Google", "https://www.google.com/search?q="),
-            ("yt:", "youtube:", "▶️ YouTube", "https://www.youtube.com/results?search_query="),
-            ("gh:", "github:", "🐙 GitHub", "https://github.com/search?q="),
-            ("wiki:", "wiki:", "📖 Wikipedia", "https://pt.wikipedia.org/wiki/"),
-        ];
-    
-        for (s, l, label, url) in prefixes {
-            if query.starts_with(s) || query.starts_with(l) {
-                let term = query.split(':').nth(1).unwrap_or("").trim();
-                return Some(FileResult::new(
-                    format!("{} : {}", label, term),
-                    format!("{}{}", url, urlencoding::encode(term)),
-                    true, 10000
-                ));
-            }
-        }
-        None
-    }
-    
-    fn handle_calculator(query: &str) -> Option<FileResult> {
-        let clean = query.replace("calc:", "").replace("=", "").trim().to_string();
-        if clean.chars().any(|c| c.is_numeric()) && clean.chars().any(|c| "+-*/^(".contains(c)) {
-            if let Ok(res) = meval::eval_str(clean.replace('x', "*").replace(',', ".")) {
-                return Some(FileResult::new(format!("🧮 = {}", res), format!("result:{}", res), true, 10000));
-            }
-        }
-        None
-    }
-    
-    fn search_in_directory(dir: &std::path::Path, query: &str, matcher: &SkimMatcherV2, results: &mut Vec<FileResult>) {
-        for entry in WalkDir::new(dir).max_depth(3).into_iter().filter_map(|e| e.ok()).filter(|e| e.file_type().is_file()) {
-            let name = entry.file_name().to_string_lossy();
-            if let Some(score) = matcher.fuzzy_match(&name.to_lowercase(), query) {
-                results.push(FileResult::new(name.to_string(), entry.path().display().to_string(), false, score));
-            }
-        }
-    }
-    
-    fn search_executables(query: &str, matcher: &SkimMatcherV2, results: &mut Vec<FileResult>) {
-        #[cfg(target_os = "windows")]
-        {
-            let paths = ["C:\\Program Files", "C:\\Program Files (x86)"];
-            for path in paths.iter().map(std::path::Path::new).filter(|p| p.exists()) {
-                for entry in WalkDir::new(path).max_depth(2).into_iter().filter_map(|e| e.ok()).filter(|e| e.file_type().is_file()) {
-                    if entry.path().extension().map_or(false, |ext| ext == "exe") {
-                        let name = entry.file_name().to_string_lossy();
-                        if let Some(score) = matcher.fuzzy_match(&name.to_lowercase(), query) {
-                            results.push(FileResult::new(name.to_string(), entry.path().display().to_string(), true, score + 2000));
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    fn get_common_apps() -> Vec<FileResult> {
+    pub fn get_common_apps() -> Vec<FileResult> {
         #[cfg(target_os = "windows")]
         {
             vec![
-                FileResult::new("Calculadora".into(), "calc.exe".into(), true, 1000),
-                FileResult::new("Bloco de Notas".into(), "notepad.exe".into(), true, 900),
-                FileResult::new("VS Code".into(), "code".into(), true, 800),
+                FileResult::new("Bloco de Notas".into(), "notepad.exe".into(), true, 1000),
+                FileResult::new("Prompt de Comando".into(), "cmd.exe".into(), true, 950),
+                FileResult::new("Gerenciador de Tarefas".into(), "taskmgr.exe".into(), true, 900),
+                FileResult::new("Configurações".into(), "ms-settings:home".into(), true, 850),
+                FileResult::new("Explorador de Arquivos".into(), "explorer.exe".into(), true, 800),                
+                FileResult::new("Painel de Controle".into(), "control.exe".into(), true, 700),
             ]
         }
         #[cfg(not(target_os = "windows"))]
         {
             vec![
-                FileResult::new("Terminal".into(), "terminal".into(), true, 1000),
-                FileResult::new("VS Code".into(), "code".into(), true, 800),
+                FileResult::new("Terminal".into(), "x-terminal-emulator".into(), true, 1000),
+                FileResult::new("Editor de Texto".into(), "gedit".into(), true, 900),
             ]
         }
     }
@@ -229,16 +162,11 @@ pub mod commands {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
-
     let mut builder = tauri::Builder::default();
 
-    // Plugin de Autostart: Apenas Windows
     #[cfg(target_os = "windows")]
     {
-        builder = builder.plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent, 
-            Some(vec!["--hidden"])
-        ));
+        builder = builder.plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec!["--hidden"])));
     }
 
     builder
@@ -252,44 +180,64 @@ pub fn run() {
                     }
                 }
             }).build())
-        .manage(AppState { hotkey_registered: Mutex::new(false) })
+        .manage(AppState { 
+            hotkey_registered: Mutex::new(false),
+            clipboard_history: Mutex::new(Vec::new()),
+        })
         .invoke_handler(tauri::generate_handler![
             commands::search_files, 
-            commands::open_file, 
-            commands::hide_window, 
-            commands::show_window
+            commands::open_file
         ])
         .setup(move |app| {
-            app.global_shortcut().register(shortcut).expect("Erro ao registrar atalho");
+            app.global_shortcut().register(shortcut).expect("Erro atalho");
+            let handle = app.handle().clone();
+
+            
+            std::thread::spawn(move || {
+                let mut clipboard = arboard::Clipboard::new().expect("Falha clipboard");
+                let mut last_content = String::new();
+                loop {
+                    if let Ok(text_val) = clipboard.get_text() {
+                        let text: String = text_val.trim().to_string();
+                        if !text.is_empty() && text != last_content {
+                            last_content = text.clone();
+                            let state = handle.state::<AppState>();
+                            let mut history = state.clipboard_history.lock().unwrap();
+                            let sensitive = is_likely_sensitive(&text);
+                            history.retain(|x| x.content != text);
+                            history.insert(0, ClipboardItem { content: text, is_sensitive: sensitive });
+                            if history.len() > 30 { history.pop(); }
+                        }
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(800));
+                }
+            });
 
             #[cfg(target_os = "windows")]
-            {
-                use tauri_plugin_autostart::ManagerExt; // Import local
-                let autostart_manager = app.autolaunch(); 
-                let _ = autostart_manager.enable(); 
-            }
+            { let _ = app.autolaunch().enable(); }
 
             let _tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
-                .tooltip("CLauncher")
                 .on_tray_icon_event(|tray, event| {
                     if let TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, .. } = event {
-                        if let Some(window) = tray.app_handle().get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
+                        let _ = tray.app_handle().get_webview_window("main").map(|w| { let _ = w.show(); let _ = w.set_focus(); });
                     }
                 })
                 .build(app)?;
 
             Ok(())
         })
+        
         .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
+            match event {
+                tauri::WindowEvent::Focused(focused) => {
+                    if !focused {
+                        let _ = window.hide();
+                    }
+                }
+                _ => {}
             }
         })
         .run(tauri::generate_context!())
-        .expect("Erro ao iniciar aplicação");
+        .expect("Erro ao iniciar");
 }

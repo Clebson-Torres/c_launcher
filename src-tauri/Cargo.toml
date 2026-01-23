@@ -21,6 +21,7 @@ tauri-plugin-global-shortcut = "2.0.0" # Versão estável
 image = { version = "0.25", default-features = false, features = ["ico", "png"] }
 urlencoding = "2.1"
 meval = "0.2"
+arboard = "3.6.1"
 
 
 [target.'cfg(windows)'.dependencies]

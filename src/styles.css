@@ -16,7 +16,7 @@ body {
     -moz-osx-font-smoothing: grayscale;
     overflow: hidden;
     height: 100vh;
-    background: transparent;
+    background-color: transparent;
 }
 
 /* Container principal - COM border-radius para arredondar junto com o campo */
@@ -28,19 +28,16 @@ body {
     width: 600px;
     max-height: 500px;
     background: rgba(20, 20, 20, 0.98);
-
-    /* Border-radius completo para o container */
-    border-radius: 12px;
-
-    /* SEM padding no topo - NENHUM */
+    background-color: #1a1a1a;   
+    border-radius: 12px;    
     padding: 0 0 16px 0;
-
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(20px);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     z-index: 999999;
+    
 }
 
 /* Campo de busca - ARREDONDADO NO TOPO */
@@ -277,7 +274,7 @@ body {
     /* Comandos disponíveis */
     .footer-commands {
         display: flex;
-        gap: 20px;
+        gap: 15px;
         flex-wrap: wrap;
         justify-content: center;
     }
@@ -285,7 +282,7 @@ body {
     .command-group {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
         color: rgba(255, 255, 255, 0.6);
     }
 
@@ -302,7 +299,7 @@ body {
         border: 1px solid rgba(59, 130, 246, 0.3);
         color: #60a5fa;
         padding: 2px 6px;
-        border-radius: 3px;
+        border-radius: 4px;
         font-family: 'Consolas', 'Monaco', monospace;
         font-size: 10px;
         font-weight: 500;
@@ -420,9 +417,10 @@ body {
 
 .command-group code {
     background: rgba(59, 130, 246, 0.15);
+    background-color: #333;
     border: 1px solid rgba(59, 130, 246, 0.3);
     color: #60a5fa;
-    padding: 2px 6px;
+    padding: 2px 4px;
     border-radius: 3px;
     font-family: 'Consolas', 'Monaco', monospace;
     font-size: 10px;
@@ -448,7 +446,7 @@ body {
 .command-group code:hover {
     background: rgba(59, 130, 246, 0.25);
     border-color: rgba(59, 130, 246, 0.5);
-    cursor: help;
+    
 }
 
 .shortcut-item kbd:hover {
