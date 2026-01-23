@@ -21,24 +21,16 @@ c_launcher supports powerful custom commands with prefixes:
 #### 🌐 Web Search
 - `g: term` or `google: term` - Search on Google
 - `yt: video` - Search on YouTube
-- `wiki: topic` - Search on Wikipedia
-- `reddit: term` or `r: /subreddit` - Search on Reddit
-- `so: question` - Search on Stack Overflow
-- `amazon: product` - Search on Amazon
+- `wiki:` - Search on Wikipedia
 
 #### 🛠️ Utilities
 - `calc: 2+2` or `= 50*3` or just `10+5` - Built-in calculator
-- `tr: hello world` - Translate with Google Translate
-- `maps: location` or `m: address` - Open in Google Maps
-- `mail: email@example.com` - Compose email
 
 #### 💻 Developer Tools
 - `gh: user/repo` - Open GitHub repository
 - `gh: search term` - Search on GitHub
 
-#### 💱 Conversions
-- `100 usd to brl` - Currency conversion
-- `10 km to miles` - Unit conversion
+
 
 ### ⌨️ Keyboard Shortcuts
 - `Ctrl + Shift + Space` - Toggle launcher window
