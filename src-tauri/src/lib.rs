@@ -4,9 +4,7 @@ use std::sync::Mutex;
 use tauri::{Manager, WindowEvent, tray::{TrayIconBuilder, TrayIconEvent}};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-#[cfg(desktop)]
-use tauri_plugin_autostart::ManagerExt; 
-
+// Removido o import global aqui para não quebrar no Linux/Mac
 
 #[derive(Clone, serde::Serialize)]
 pub struct FileResult {
@@ -26,7 +24,6 @@ pub struct AppState {
     pub hotkey_registered: Mutex<bool>,
 }
 
-
 pub mod commands {
     use super::*;
     use directories::UserDirs;
@@ -44,13 +41,11 @@ pub mod commands {
             return Ok(get_common_apps());
         }
     
-       
         if let Some(web_res) = handle_web_prefixes(query_trim) {
             results.push(web_res);
             return Ok(results);
         }
     
-        
         if let Some(calc_res) = handle_calculator(query_trim) {
             results.push(calc_res);
             return Ok(results);
@@ -61,16 +56,16 @@ pub mod commands {
         
         if query_trim.starts_with('>') {
             let cmd_text = query_trim.strip_prefix('>').unwrap_or("").trim();
-                if !cmd_text.is_empty() {
-                    results.push(FileResult::new(
-                        format!("💻 Executar: {}", cmd_text),
-                        format!("terminal:{}", cmd_text), 
-                        true,
-                        20000 
-                    ));
-                    return Ok(results);
-                }
-}
+            if !cmd_text.is_empty() {
+                results.push(FileResult::new(
+                    format!("💻 Executar: {}", cmd_text),
+                    format!("terminal:{}", cmd_text), 
+                    true,
+                    20000 
+                ));
+                return Ok(results);
+            }
+        }
         
         if let Some(user_dirs) = UserDirs::new() {
             let search_dirs = vec![
@@ -83,10 +78,8 @@ pub mod commands {
             }
         }
     
-        
         search_executables(&query_lower, &matcher, &mut results);
     
-        
         for app in get_common_apps() {
             if matcher.fuzzy_match(&app.name.to_lowercase(), &query_lower).is_some() {
                 results.push(app);
@@ -102,27 +95,20 @@ pub mod commands {
     pub async fn open_file(path: String) -> Result<(), String> {
         if path.starts_with("result:") { return Ok(()); }
 
+        // --- LÓGICA DE TERMINAL ---
         if path.starts_with("terminal:") {
-            let _cmd = path.strip_prefix("terminal:").unwrap_or("");
-
-            if path.starts_with("terminal:") {
-        let cmd = path.strip_prefix("terminal:").unwrap_or("");
-        
-        #[cfg(target_os = "windows")]
-        {
+            let cmd = path.strip_prefix("terminal:").unwrap_or("");
             
-            std::process::Command::new("cmd")
-                .args(["/C", "start", "powershell", "-NoExit", "-Command", cmd])
-                .spawn()
-                .map_err(|e| e.to_string())?;
-        }
-        return Ok(());
+            #[cfg(target_os = "windows")]
+            {
+                std::process::Command::new("cmd")
+                    .args(["/C", "start", "powershell", "-NoExit", "-Command", cmd])
+                    .spawn()
+                    .map_err(|e| e.to_string())?;
+            }
 
-        #[cfg(any(target_os = "linux", target_os = "macos"))]
-        {
-            if path.starts_with("terminal:") {
-                let cmd = path.strip_prefix("terminal:").unwrap();
-                
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            {
                 let shell_cmd = if cfg!(target_os = "macos") {
                     format!("osascript -e 'tell application \"Terminal\" to do script \"{}\"'", cmd)
                 } else {
@@ -133,15 +119,11 @@ pub mod commands {
                     .arg("-c")
                     .arg(shell_cmd)
                     .spawn().map_err(|e| e.to_string())?;
-                return Ok(());
             }
+            return Ok(());
         }
-    }
-}
-            
-            
-
     
+        // --- LÓGICA DE ARQUIVOS/URLS ---
         #[cfg(target_os = "windows")]
         {
             if path.starts_with("http") || path.starts_with("mailto:") || path.starts_with("ms-settings:") {
@@ -167,8 +149,6 @@ pub mod commands {
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())
     }
-
-    
 
     fn handle_web_prefixes(query: &str) -> Option<FileResult> {
         let prefixes = [
@@ -228,23 +208,41 @@ pub mod commands {
     }
     
     fn get_common_apps() -> Vec<FileResult> {
-        vec![
-            FileResult::new("Calculadora".into(), "calc.exe".into(), true, 1000),
-            FileResult::new("Bloco de Notas".into(), "notepad.exe".into(), true, 900),
-            FileResult::new("VS Code".into(), "code".into(), true, 800),
-        ]
+        #[cfg(target_os = "windows")]
+        {
+            vec![
+                FileResult::new("Calculadora".into(), "calc.exe".into(), true, 1000),
+                FileResult::new("Bloco de Notas".into(), "notepad.exe".into(), true, 900),
+                FileResult::new("VS Code".into(), "code".into(), true, 800),
+            ]
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            vec![
+                FileResult::new("Terminal".into(), "terminal".into(), true, 1000),
+                FileResult::new("VS Code".into(), "code".into(), true, 800),
+            ]
+        }
     }
 }
-
-
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
 
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+
+    // Plugin de Autostart: Apenas Windows
+    #[cfg(target_os = "windows")]
+    {
+        builder = builder.plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent, 
+            Some(vec!["--hidden"])
+        ));
+    }
+
+    builder
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec!["--hidden"])))
         .plugin(tauri_plugin_global_shortcut::Builder::new()
             .with_handler(move |app, s, event| {
                 if s == &shortcut && event.state == ShortcutState::Pressed {
@@ -255,7 +253,6 @@ pub fn run() {
                 }
             }).build())
         .manage(AppState { hotkey_registered: Mutex::new(false) })
-        // AQUI: Usamos commands::nome_da_funcao para evitar o erro de reimport
         .invoke_handler(tauri::generate_handler![
             commands::search_files, 
             commands::open_file, 
@@ -263,14 +260,13 @@ pub fn run() {
             commands::show_window
         ])
         .setup(move |app| {
-
             app.global_shortcut().register(shortcut).expect("Erro ao registrar atalho");
 
             #[cfg(target_os = "windows")]
             {
+                use tauri_plugin_autostart::ManagerExt; // Import local
                 let autostart_manager = app.autolaunch(); 
                 let _ = autostart_manager.enable(); 
-                println!("Registrado para autostart? {}", autostart_manager.is_enabled().unwrap_or(false));
             }
 
             let _tray = TrayIconBuilder::new()
