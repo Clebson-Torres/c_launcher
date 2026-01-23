@@ -26,12 +26,9 @@ pub struct AppState {
     pub hotkey_registered: Mutex<bool>,
 }
 
-// ============================================
-// 2. MÓDULO DE COMANDOS (Isolamento)
-// ============================================
-// Isso previne o erro "defined multiple times"
+
 pub mod commands {
-    use super::*; // Permite acessar FileResult, AppState, etc.
+    use super::*;
     use directories::UserDirs;
     use fuzzy_matcher::skim::SkimMatcherV2;
     use fuzzy_matcher::FuzzyMatcher;
@@ -47,13 +44,13 @@ pub mod commands {
             return Ok(get_common_apps());
         }
     
-        // 1. Comandos Web
+       
         if let Some(web_res) = handle_web_prefixes(query_trim) {
             results.push(web_res);
             return Ok(results);
         }
     
-        // 2. Calculadora
+        
         if let Some(calc_res) = handle_calculator(query_trim) {
             results.push(calc_res);
             return Ok(results);
@@ -67,14 +64,14 @@ pub mod commands {
                 if !cmd_text.is_empty() {
                     results.push(FileResult::new(
                         format!("💻 Executar: {}", cmd_text),
-                        format!("terminal:{}", cmd_text), // Prefixo interno para o open_file
+                        format!("terminal:{}", cmd_text), 
                         true,
-                        20000 // Prioridade máxima
+                        20000 
                     ));
                     return Ok(results);
                 }
 }
-        // 3. Busca de Arquivos
+        
         if let Some(user_dirs) = UserDirs::new() {
             let search_dirs = vec![
                 user_dirs.desktop_dir(),
@@ -86,10 +83,10 @@ pub mod commands {
             }
         }
     
-        // 4. Executáveis
+        
         search_executables(&query_lower, &matcher, &mut results);
     
-        // 5. Apps Comuns
+        
         for app in get_common_apps() {
             if matcher.fuzzy_match(&app.name.to_lowercase(), &query_lower).is_some() {
                 results.push(app);
@@ -125,7 +122,7 @@ pub mod commands {
         {
             if path.starts_with("terminal:") {
                 let cmd = path.strip_prefix("terminal:").unwrap();
-                // No Linux usamos x-terminal-emulator, no Mac usamos o comando 'open'
+                
                 let shell_cmd = if cfg!(target_os = "macos") {
                     format!("osascript -e 'tell application \"Terminal\" to do script \"{}\"'", cmd)
                 } else {
@@ -171,7 +168,7 @@ pub mod commands {
         window.set_focus().map_err(|e| e.to_string())
     }
 
-    // --- Helpers internos do módulo commands ---
+    
 
     fn handle_web_prefixes(query: &str) -> Option<FileResult> {
         let prefixes = [
@@ -239,9 +236,7 @@ pub mod commands {
     }
 }
 
-// ============================================
-// 3. ENTRY POINT (RUN)
-// ============================================
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
