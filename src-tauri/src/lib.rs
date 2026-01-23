@@ -266,7 +266,7 @@ pub fn run() {
 
             app.global_shortcut().register(shortcut).expect("Erro ao registrar atalho");
 
-            #[cfg(desktop)]
+            #[cfg(target_os = "windows")]
             {
                 let autostart_manager = app.autolaunch(); 
                 let _ = autostart_manager.enable(); 
