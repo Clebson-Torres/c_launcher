@@ -27,21 +27,17 @@
         "center": true,
         "visible": false,
         "shadow": false
-        
       }
     ]
   },
   "bundle": {
     "active": true,
-    "icon": [
-      "icons/cl.png",            
-      "icons/cl.ico"
-    ],
+    "icon": ["icons/cl.png", "icons/cl.ico"],
     "targets": "all",
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "timestampUrl": ""
     }
-  }
+  }  
 }
