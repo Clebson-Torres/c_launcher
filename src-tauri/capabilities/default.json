@@ -13,8 +13,6 @@
     "core:window:allow-close",
     "core:window:allow-set-focus",
     "core:tray:default",
-    "autostart:allow-enable",
-    "autostart:allow-disable",
-    "autostart:allow-is-enabled"
+    "shell:allow-open"
   ]
 }
